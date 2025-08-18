@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>水平仪圆盘</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .instrument-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+        
+        canvas {
+            background-color: #222;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: -60px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        input {
+            width: 150px;
+        }
+        
+        .yaw-pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            z-index: 10;
+            transform-origin: 50% 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="instrument-container">
+        <div class="yaw-pointer" id="yawPointer"></div>
+        <canvas id="horizon" width="400" height="400"></canvas>
+        <div class="controls">
+            <div>
+                <label for="yaw">偏航角 (0-360°):</label>
+                <input type="range" id="yaw" min="0" max="360" value="0">
+            </div>
+            <div>
+                <label for="pitch">高度变化 (俯仰角):</label>
+                <input type="range" id="pitch" min="-30" max="30" value="0">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('horizon');
+        const ctx = canvas.getContext('2d');
+        const yawInput = document.getElementById('yaw');
+        const pitchInput = document.getElementById('pitch');
+        const yawPointer = document.getElementById('yawPointer');
+        
+        // 初始值
+        let yaw = 0;      // 偏航角 (0-360度)
+        let pitch = 0;    // 俯仰角 (-30到30度，模拟高度变化)
+        
+        // 动画循环
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawArtificialHorizon(yaw, pitch);
+            updateYawPointer(yaw);
+            requestAnimationFrame(animate);
+        }
+        
+        // 更新偏航指针位置
+        function updateYawPointer(yaw) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) + 20;
+            
+            // 计算指针位置（指向外环）
+            const angle = (yaw - 90) * Math.PI / 180; // -90度使指针从顶部开始
+            const pointerX = centerX + Math.cos(angle) * radius;
+            const pointerY = centerY + Math.sin(angle) * radius;
+            
+            // 设置指针位置和旋转
+            yawPointer.style.left = `${pointerX}px`;
+            yawPointer.style.top = `${pointerY}px`;
+            yawPointer.style.transform = `translate(-50%, -100%) rotate(${yaw - 180}deg)`;
+        }
+        
+        // 绘制水平仪
+        function drawArtificialHorizon(yaw, pitch) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 20;
+            
+            // 绘制外圆
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 保存当前状态
+            ctx.save();
+            
+            // 平移画布到中心
+            ctx.translate(centerX, centerY);
+            
+            // 根据偏航角旋转整个画布
+            ctx.rotate(-yaw * Math.PI / 180);
+            
+            // 绘制地平线（带颜色分区）
+            drawHorizonWithColor(radius, pitch);
+            
+            // 绘制俯仰刻度
+            drawPitchIndicators(radius, pitch);
+            
+            // 恢复状态
+            ctx.restore();
+            
+            // 绘制方位刻度（固定不旋转）
+            drawHeadingIndicators(centerX, centerY, radius, yaw);
+            
+            // 绘制固定标记（不随偏航旋转）
+            drawFixedMarkers(centerX, centerY, pitch);
+        }
+        
+        function drawHorizonWithColor(radius, pitch) {
+            // 创建渐变（从天空蓝到大地棕）
+            const gradient = ctx.createLinearGradient(0, -radius, 0, radius);
+            gradient.addColorStop(0, '#87CEEB'); // 天空蓝
+            gradient.addColorStop(0.5, '#87CEEB'); // 天空蓝
+            gradient.addColorStop(0.5, '#8B4513'); // 大地棕
+            gradient.addColorStop(1, '#8B4513'); // 大地棕
+            
+            // 根据俯仰角调整渐变位置
+            const gradientOffset = pitch / 60; // 调整比例
+            
+            // 重新创建渐变，考虑俯仰角
+            const adjustedGradient = ctx.createLinearGradient(
+                0, -radius + gradientOffset * radius * 2, 
+                0, radius + gradientOffset * radius * 2
+            );
+            adjustedGradient.addColorStop(0, '#87CEEB');
+            adjustedGradient.addColorStop(0.5 - gradientOffset, '#87CEEB');
+            adjustedGradient.addColorStop(0.5 - gradientOffset, '#8B4513');
+            adjustedGradient.addColorStop(1, '#8B4513');
+            
+            // 绘制带渐变的圆
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fillStyle = adjustedGradient;
+            ctx.fill();
+            
+            // 绘制地平线（考虑俯仰角）
+            ctx.beginPath();
+            ctx.moveTo(-radius, pitch * 5);
+            ctx.lineTo(radius, pitch * 5);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 绘制中央参考线
+            ctx.beginPath();
+            ctx.moveTo(-radius, 0);
+            ctx.lineTo(radius, 0);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        function drawPitchIndicators(radius, pitch) {
+            const pitchLines = 4; // 上下各4条线
+            const lineSpacing = 15; // 线间距
+            const lineLength = 20; // 线长度
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            
+            // 绘制上方刻度（俯角）
+            for (let i = 1; i <= pitchLines; i++) {
+                const yPos = -i * lineSpacing + pitch * 5;
+                // 水平线
+                ctx.beginPath();
+                if(i % 2) {
+                    // 短线
+                    ctx.moveTo(-lineLength/2 + 5, yPos);
+                    ctx.lineTo(lineLength/2 - 5, yPos);
+                    ctx.stroke();
+                } else {
+                    // 长线
+                    ctx.moveTo(-lineLength, yPos);
+                    ctx.lineTo(lineLength, yPos);
+                    ctx.stroke();
+                    // 刻度值（俯角）
+                    ctx.fillText((i * 5).toString(), lineLength + 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), -lineLength - 15, yPos + 4);
+                }
+            }
+            
+            // 绘制下方刻度（仰角）
+            for (let i = 1; i <= pitchLines; i++) {
+                const yPos = i * lineSpacing + pitch * 5;
+                ctx.beginPath();
+                if(i % 2) {
+                    // 短线
+                    ctx.moveTo(-lineLength/2 + 5, yPos);
+                    ctx.lineTo(lineLength/2 - 5, yPos);
+                    ctx.stroke();
+                } else {
+                    // 长线
+                    ctx.moveTo(-lineLength, yPos);
+                    ctx.lineTo(lineLength, yPos);
+                    ctx.stroke();
+                    // 刻度值（仰角）
+                    ctx.fillText((i * 5).toString(), lineLength + 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), -lineLength - 15, yPos + 4);
+                }
+            }
+        }
+        
+        function drawHeadingIndicators(centerX, centerY, radius, yaw) {
+            const indicatorSize = 15;
+            const textOffset = 25;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            
+            // 绘制主要方位指示器（N, E, S, W）
+            const headings = [
+                { angle: 0, label: 'N' },
+                { angle: 90, label: 'E' },
+                { angle: 180, label: 'S' },
+                { angle: 270, label: 'W' }
+            ];
+            
+            headings.forEach(heading => {
+                const angle = (heading.angle - yaw) * Math.PI / 180;
+                const x = centerX + Math.sin(angle) * (radius + textOffset/2);
+                const y = centerY - Math.cos(angle) * (radius + textOffset/2);
+                
+                // 只显示在可见范围内的标记
+                if (Math.abs(Math.sin(angle)) < 0.9) {
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        centerX + Math.sin(angle) * (radius - indicatorSize),
+                        centerY - Math.cos(angle) * (radius - indicatorSize)
+                    );
+                    ctx.lineTo(
+                        centerX + Math.sin(angle) * radius,
+                        centerY - Math.cos(angle) * radius
+                    );
+                    ctx.stroke();
+                    ctx.fillText(heading.label, x, y + 5);
+                }
+            });
+            
+            // 绘制刻度线（每30度）
+            for (let i = 0; i < 360; i += 30) {
+                if (i % 90 === 0) continue; // 跳过主要方位
+                const angle = (i - yaw) * Math.PI / 180;
+                const lineLength = 10;
+                
+                // 只显示在可见范围内的刻度
+                if (Math.abs(Math.sin(angle)) < 0.9) {
+                    ctx.beginPath();
+                    const x = centerX + Math.sin(angle) * (radius + lineLength);
+                    const y = centerY - Math.cos(angle) * (radius + lineLength);
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(
+                        centerX + Math.sin(angle) * radius,
+                        centerY - Math.cos(angle) * radius
+                    );
+                    ctx.stroke();
+                    ctx.fillText((i/10).toString(), x, y+5);
+                }
+            }
+        }
+        
+        function drawFixedMarkers(centerX, centerY, pitch) {
+            // 中央固定标记（飞机符号）
+            ctx.strokeStyle = '#f00';
+            ctx.lineWidth = 2;
+            
+            // 水平线
+            ctx.beginPath();
+            ctx.moveTo(centerX - 50, centerY + pitch * 5);
+            ctx.lineTo(centerX - 10, centerY + pitch * 5);
+            ctx.moveTo(centerX + 10, centerY + pitch * 5);
+            ctx.lineTo(centerX + 50, centerY + pitch * 5);
+            ctx.stroke();
+            
+            // 垂直线
+            ctx.beginPath();
+            ctx.lineWidth = 5;
+            ctx.moveTo(centerX, centerY + 2 + pitch * 5);
+            ctx.lineTo(centerX, centerY - 2 + pitch * 5);
+            ctx.strokeStyle = '#ff0';
+            ctx.stroke();
+        }
+        
+        // 事件监听
+        yawInput.addEventListener('input', (e) => {
+            yaw = parseInt(e.target.value);
+        });
+        
+        pitchInput.addEventListener('input', (e) => {
+            pitch = parseInt(e.target.value);
+        });
+        
+        // 启动动画
+        animate();
+    </script>
+</body>
+</html>
