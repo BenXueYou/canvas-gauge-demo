@@ -12,19 +12,16 @@
             margin: 0;
             font-family: Arial, sans-serif;
         }
-        
         .instrument-container {
             position: relative;
             width: 400px;
             height: 400px;
         }
-        
         canvas {
             background-color: #222;
             border-radius: 50%;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         }
-        
         .controls {
             position: absolute;
             bottom: -60px;
@@ -32,11 +29,9 @@
             display: flex;
             justify-content: space-around;
         }
-        
         input {
             width: 150px;
         }
-        
         .yaw-pointer {
             position: absolute;
             top: 0;
@@ -60,7 +55,7 @@
                 <input type="range" id="yaw" min="0" max="360" value="0">
             </div>
             <div>
-                <label for="pitch">高度变化 (俯仰角):</label>
+                <label for="pitch">俯仰角 (-30-30°):</label>
                 <input type="range" id="pitch" min="-30" max="30" value="0">
             </div>
         </div>
@@ -75,7 +70,7 @@
         
         // 初始值
         let yaw = 0;      // 偏航角 (0-360度)
-        let pitch = 0;    // 俯仰角 (-30到30度，模拟高度变化)
+        let pitch = 0;    // 俯仰角 (-30到30度)
         
         // 动画循环
         function animate() {
@@ -91,12 +86,10 @@
             const centerY = canvas.height / 2;
             const radius = Math.min(centerX, centerY) + 20;
             
-            // 计算指针位置（指向外环）
-            const angle = (yaw - 90) * Math.PI / 180; // -90度使指针从顶部开始
+            const angle = (yaw - 90) * Math.PI / 180;
             const pointerX = centerX + Math.cos(angle) * radius;
             const pointerY = centerY + Math.sin(angle) * radius;
             
-            // 设置指针位置和旋转
             yawPointer.style.left = `${pointerX}px`;
             yawPointer.style.top = `${pointerY}px`;
             yawPointer.style.transform = `translate(-50%, -100%) rotate(${yaw - 180}deg)`;
@@ -108,136 +101,118 @@
             const centerY = canvas.height / 2;
             const radius = Math.min(centerX, centerY) - 20;
             
-            // 绘制外圆
+            // 1. 绘制固定外圆
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // 保存当前状态
-            ctx.save();
+            // 2. 绘制动态部分（水平线和颜色分区）
+            drawDynamicHorizon(centerX, centerY, radius, yaw, pitch);
             
-            // 平移画布到中心
-            ctx.translate(centerX, centerY);
+            // 3. 绘制固定刻度（在动态部分之上）
+            drawFixedIndicators(centerX, centerY, radius, pitch);
             
-            // 根据偏航角旋转画布（仅影响水平线和颜色分区）
-            ctx.rotate(-yaw * Math.PI / 180);
-            
-            // 绘制动态水平线和颜色分区
-            drawDynamicHorizon(radius, pitch);
-            
-            // 恢复状态
-            ctx.restore();
-            
-            // 绘制固定圆环刻度（不随偏航旋转）
-            drawHeadingIndicators(centerX, centerY, radius);
-            
-            // 绘制固定水平刻度（不随偏航旋转）
-            drawPitchIndicators(centerX, centerY, radius, pitch);
-            
-            // 绘制固定标记（不随偏航旋转）
+            // 4. 绘制固定标记
             drawFixedMarkers(centerX, centerY, pitch);
         }
         
-        function drawDynamicHorizon(radius, pitch) {
-            // 创建渐变（从天空蓝到大地棕）
-            const gradient = ctx.createLinearGradient(0, -radius, 0, radius);
-            gradient.addColorStop(0, '#87CEEB'); // 天空蓝
-            gradient.addColorStop(0.5, '#87CEEB'); // 天空蓝
-            gradient.addColorStop(0.5, '#8B4513'); // 大地棕
-            gradient.addColorStop(1, '#8B4513'); // 大地棕
+        function drawDynamicHorizon(centerX, centerY, radius, yaw, pitch) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(-yaw * Math.PI / 180);
             
-            // 根据俯仰角调整渐变位置
-            const gradientOffset = pitch / 60; // 调整比例
-            
-            // 重新创建渐变，考虑俯仰角
-            const adjustedGradient = ctx.createLinearGradient(
-                0, -radius + gradientOffset * radius * 2, 
-                0, radius + gradientOffset * radius * 2
+            // 创建动态渐变（根据俯仰角调整）
+            const gradient = ctx.createLinearGradient(
+                0, -radius + pitch * 5, 
+                0, radius + pitch * 5
             );
-            adjustedGradient.addColorStop(0, '#87CEEB');
-            adjustedGradient.addColorStop(0.5 - gradientOffset, '#87CEEB');
-            adjustedGradient.addColorStop(0.5 - gradientOffset, '#8B4513');
-            adjustedGradient.addColorStop(1, '#8B4513');
+            gradient.addColorStop(0, '#87CEEB'); // 天空蓝
+            gradient.addColorStop(0.5, '#87CEEB');
+            gradient.addColorStop(0.5, '#8B4513'); // 大地棕
+            gradient.addColorStop(1, '#8B4513');
             
-            // 绘制带渐变的圆
+            // 绘制动态颜色分区
             ctx.beginPath();
             ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.fillStyle = adjustedGradient;
+            ctx.fillStyle = gradient;
             ctx.fill();
             
-            // 绘制水平线（考虑俯仰角）
+            // 绘制动态水平线
             ctx.beginPath();
             ctx.moveTo(-radius, pitch * 5);
             ctx.lineTo(radius, pitch * 5);
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        function drawFixedIndicators(centerX, centerY, radius, pitch) {
+            // 绘制圆环刻度
+            drawHeadingIndicators(centerX, centerY, radius);
+            
+            // 绘制水平刻度
+            drawPitchIndicators(centerX, centerY, radius, pitch);
         }
         
         function drawPitchIndicators(centerX, centerY, radius, pitch) {
-            const pitchLines = 4; // 上下各4条线
-            const lineSpacing = 15; // 线间距
-            const lineLength = 20; // 线长度
+            const pitchLines = 4;
+            const lineSpacing = 15;
+            const lineLength = 20;
+            
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.font = '12px Arial';
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             
-            // 绘制上方刻度（俯角）
+            // 上方刻度（俯角）
             for (let i = 1; i <= pitchLines; i++) {
                 const yPos = centerY - i * lineSpacing + pitch * 5;
-                // 水平线
                 ctx.beginPath();
                 if(i % 2) {
-                    // 短线
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
                     ctx.lineTo(centerX + lineLength/2 - 5, yPos);
-                    ctx.stroke();
                 } else {
-                    // 长线
                     ctx.moveTo(centerX - lineLength, yPos);
                     ctx.lineTo(centerX + lineLength, yPos);
-                    ctx.stroke();
-                    // 刻度值（俯角）
                     ctx.fillText((i * 5).toString(), centerX + lineLength + 15, yPos + 4);
                     ctx.fillText((i * 5).toString(), centerX - lineLength - 15, yPos + 4);
                 }
+                ctx.stroke();
             }
             
-            // 绘制下方刻度（仰角）
+            // 下方刻度（仰角）
             for (let i = 1; i <= pitchLines; i++) {
                 const yPos = centerY + i * lineSpacing + pitch * 5;
                 ctx.beginPath();
                 if(i % 2) {
-                    // 短线
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
                     ctx.lineTo(centerX + lineLength/2 - 5, yPos);
-                    ctx.stroke();
                 } else {
-                    // 长线
                     ctx.moveTo(centerX - lineLength, yPos);
                     ctx.lineTo(centerX + lineLength, yPos);
-                    ctx.stroke();
-                    // 刻度值（仰角）
                     ctx.fillText((i * 5).toString(), centerX + lineLength + 15, yPos + 4);
                     ctx.fillText((i * 5).toString(), centerX - lineLength - 15, yPos + 4);
                 }
+                ctx.stroke();
             }
         }
         
         function drawHeadingIndicators(centerX, centerY, radius) {
             const indicatorSize = 15;
             const textOffset = 25;
+            
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.font = '14px Arial';
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             
-            // 绘制主要方位指示器（N, E, S, W）
+            // 主要方位指示器
             const headings = [
                 { angle: 0, label: 'N' },
                 { angle: 90, label: 'E' },
@@ -263,9 +238,9 @@
                 ctx.fillText(heading.label, x, y + 5);
             });
             
-            // 绘制刻度线（每30度）
+            // 刻度线（每30度）
             for (let i = 0; i < 360; i += 30) {
-                if (i % 90 === 0) continue; // 跳过主要方位
+                if (i % 90 === 0) continue;
                 const angle = i * Math.PI / 180;
                 const lineLength = 10;
                 
@@ -283,7 +258,7 @@
         }
         
         function drawFixedMarkers(centerX, centerY, pitch) {
-            // 中央固定标记（飞机符号）
+            // 飞机符号
             ctx.strokeStyle = '#f00';
             ctx.lineWidth = 2;
             
