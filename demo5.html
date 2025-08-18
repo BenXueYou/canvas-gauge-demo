@@ -121,26 +121,26 @@
             // 平移画布到中心
             ctx.translate(centerX, centerY);
             
-            // 根据偏航角旋转整个画布
+            // 根据偏航角旋转画布（仅影响水平线和颜色分区）
             ctx.rotate(-yaw * Math.PI / 180);
             
-            // 绘制地平线（带颜色分区）
-            drawHorizonWithColor(radius, pitch);
-            
-            // 绘制俯仰刻度
-            drawPitchIndicators(radius, pitch);
+            // 绘制动态水平线和颜色分区
+            drawDynamicHorizon(radius, pitch);
             
             // 恢复状态
             ctx.restore();
             
-            // 绘制方位刻度（固定不旋转）
-            drawHeadingIndicators(centerX, centerY, radius, yaw);
+            // 绘制固定圆环刻度（不随偏航旋转）
+            drawHeadingIndicators(centerX, centerY, radius);
+            
+            // 绘制固定水平刻度（不随偏航旋转）
+            drawPitchIndicators(centerX, centerY, radius, pitch);
             
             // 绘制固定标记（不随偏航旋转）
             drawFixedMarkers(centerX, centerY, pitch);
         }
         
-        function drawHorizonWithColor(radius, pitch) {
+        function drawDynamicHorizon(radius, pitch) {
             // 创建渐变（从天空蓝到大地棕）
             const gradient = ctx.createLinearGradient(0, -radius, 0, radius);
             gradient.addColorStop(0, '#87CEEB'); // 天空蓝
@@ -167,24 +167,16 @@
             ctx.fillStyle = adjustedGradient;
             ctx.fill();
             
-            // 绘制地平线（考虑俯仰角）
+            // 绘制水平线（考虑俯仰角）
             ctx.beginPath();
             ctx.moveTo(-radius, pitch * 5);
             ctx.lineTo(radius, pitch * 5);
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
-            
-            // 绘制中央参考线
-            ctx.beginPath();
-            ctx.moveTo(-radius, 0);
-            ctx.lineTo(radius, 0);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
         }
         
-        function drawPitchIndicators(radius, pitch) {
+        function drawPitchIndicators(centerX, centerY, radius, pitch) {
             const pitchLines = 4; // 上下各4条线
             const lineSpacing = 15; // 线间距
             const lineLength = 20; // 线长度
@@ -196,47 +188,47 @@
             
             // 绘制上方刻度（俯角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = -i * lineSpacing + pitch * 5;
+                const yPos = centerY - i * lineSpacing + pitch * 5;
                 // 水平线
                 ctx.beginPath();
                 if(i % 2) {
                     // 短线
-                    ctx.moveTo(-lineLength/2 + 5, yPos);
-                    ctx.lineTo(lineLength/2 - 5, yPos);
+                    ctx.moveTo(centerX - lineLength/2 + 5, yPos);
+                    ctx.lineTo(centerX + lineLength/2 - 5, yPos);
                     ctx.stroke();
                 } else {
                     // 长线
-                    ctx.moveTo(-lineLength, yPos);
-                    ctx.lineTo(lineLength, yPos);
+                    ctx.moveTo(centerX - lineLength, yPos);
+                    ctx.lineTo(centerX + lineLength, yPos);
                     ctx.stroke();
                     // 刻度值（俯角）
-                    ctx.fillText((i * 5).toString(), lineLength + 15, yPos + 4);
-                    ctx.fillText((i * 5).toString(), -lineLength - 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), centerX + lineLength + 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), centerX - lineLength - 15, yPos + 4);
                 }
             }
             
             // 绘制下方刻度（仰角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = i * lineSpacing + pitch * 5;
+                const yPos = centerY + i * lineSpacing + pitch * 5;
                 ctx.beginPath();
                 if(i % 2) {
                     // 短线
-                    ctx.moveTo(-lineLength/2 + 5, yPos);
-                    ctx.lineTo(lineLength/2 - 5, yPos);
+                    ctx.moveTo(centerX - lineLength/2 + 5, yPos);
+                    ctx.lineTo(centerX + lineLength/2 - 5, yPos);
                     ctx.stroke();
                 } else {
                     // 长线
-                    ctx.moveTo(-lineLength, yPos);
-                    ctx.lineTo(lineLength, yPos);
+                    ctx.moveTo(centerX - lineLength, yPos);
+                    ctx.lineTo(centerX + lineLength, yPos);
                     ctx.stroke();
                     // 刻度值（仰角）
-                    ctx.fillText((i * 5).toString(), lineLength + 15, yPos + 4);
-                    ctx.fillText((i * 5).toString(), -lineLength - 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), centerX + lineLength + 15, yPos + 4);
+                    ctx.fillText((i * 5).toString(), centerX - lineLength - 15, yPos + 4);
                 }
             }
         }
         
-        function drawHeadingIndicators(centerX, centerY, radius, yaw) {
+        function drawHeadingIndicators(centerX, centerY, radius) {
             const indicatorSize = 15;
             const textOffset = 25;
             ctx.strokeStyle = '#fff';
@@ -254,45 +246,39 @@
             ];
             
             headings.forEach(heading => {
-                const angle = (heading.angle - yaw) * Math.PI / 180;
+                const angle = heading.angle * Math.PI / 180;
                 const x = centerX + Math.sin(angle) * (radius + textOffset/2);
                 const y = centerY - Math.cos(angle) * (radius + textOffset/2);
                 
-                // 只显示在可见范围内的标记
-                if (Math.abs(Math.sin(angle)) < 0.9) {
-                    ctx.beginPath();
-                    ctx.moveTo(
-                        centerX + Math.sin(angle) * (radius - indicatorSize),
-                        centerY - Math.cos(angle) * (radius - indicatorSize)
-                    );
-                    ctx.lineTo(
-                        centerX + Math.sin(angle) * radius,
-                        centerY - Math.cos(angle) * radius
-                    );
-                    ctx.stroke();
-                    ctx.fillText(heading.label, x, y + 5);
-                }
+                ctx.beginPath();
+                ctx.moveTo(
+                    centerX + Math.sin(angle) * (radius - indicatorSize),
+                    centerY - Math.cos(angle) * (radius - indicatorSize)
+                );
+                ctx.lineTo(
+                    centerX + Math.sin(angle) * radius,
+                    centerY - Math.cos(angle) * radius
+                );
+                ctx.stroke();
+                ctx.fillText(heading.label, x, y + 5);
             });
             
             // 绘制刻度线（每30度）
             for (let i = 0; i < 360; i += 30) {
                 if (i % 90 === 0) continue; // 跳过主要方位
-                const angle = (i - yaw) * Math.PI / 180;
+                const angle = i * Math.PI / 180;
                 const lineLength = 10;
                 
-                // 只显示在可见范围内的刻度
-                if (Math.abs(Math.sin(angle)) < 0.9) {
-                    ctx.beginPath();
-                    const x = centerX + Math.sin(angle) * (radius + lineLength);
-                    const y = centerY - Math.cos(angle) * (radius + lineLength);
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(
-                        centerX + Math.sin(angle) * radius,
-                        centerY - Math.cos(angle) * radius
-                    );
-                    ctx.stroke();
-                    ctx.fillText((i/10).toString(), x, y+5);
-                }
+                ctx.beginPath();
+                const x = centerX + Math.sin(angle) * (radius + lineLength);
+                const y = centerY - Math.cos(angle) * (radius + lineLength);
+                ctx.moveTo(x, y);
+                ctx.lineTo(
+                    centerX + Math.sin(angle) * radius,
+                    centerY - Math.cos(angle) * radius
+                );
+                ctx.stroke();
+                ctx.fillText((i/10).toString(), x, y+5);
             }
         }
         
