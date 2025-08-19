@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>水平仪圆盘</title>
+    <title>飞行仪表盘</title>
     <style>
         body {
             display: flex;
@@ -273,7 +273,7 @@
         function drawFixedMarkers(centerX, centerY, pitch) {
             const radius = Math.min(centerX, centerY) - 20;
             const pitchScale = radius / 90;
-            const pitchOffset = 1 * pitchScale;
+            const pitchOffset = pitch * pitchScale;
             
             ctx.save();
             // 飞机符号
