@@ -113,8 +113,8 @@
             // 2. 绘制动态部分（水平线和颜色分区）
             drawDynamicHorizon(centerX, centerY, radius, yaw, pitch);
             
-            // 3. 绘制固定刻度（在动态部分之上）
-            drawFixedIndicators(centerX, centerY, radius, pitch);
+            // 3. 绘制固定刻度（现在在动态部分之后绘制，确保显示在上层）
+            drawFixedIndicators(centerX, centerY, radius);
             
             // 4. 绘制固定标记
             drawFixedMarkers(centerX, centerY, pitch);
@@ -159,22 +159,20 @@
             ctx.restore();
         }
         
-        function drawFixedIndicators(centerX, centerY, radius, pitch) {
+        function drawFixedIndicators(centerX, centerY, radius) {
             // 绘制圆环刻度
             drawHeadingIndicators(centerX, centerY, radius);
             
-            // 绘制水平刻度
-            drawPitchIndicators(centerX, centerY, radius, pitch);
+            // 绘制水平刻度（固定不动的俯仰刻度）
+            drawPitchIndicators(centerX, centerY, radius);
         }
         
-        function drawPitchIndicators(centerX, centerY, radius, pitch) {
-            const pitchScale = radius / 90;
-            const pitchOffset = pitch * pitchScale;
-            
+        function drawPitchIndicators(centerX, centerY, radius) {
             const pitchLines = 6; // 6条线
             const lineSpacing = 10; // 线间距
             const lineLength = 20;
             
+            ctx.save();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.font = '12px Arial';
@@ -183,7 +181,7 @@
             
             // 上方刻度（俯角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = centerY - i * lineSpacing + pitchOffset;
+                const yPos = centerY - i * lineSpacing;
                 ctx.beginPath();
                 if(i % 2) {
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
@@ -199,7 +197,7 @@
             
             // 下方刻度（仰角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = centerY + i * lineSpacing + pitchOffset;
+                const yPos = centerY + i * lineSpacing;
                 ctx.beginPath();
                 if(i % 2) {
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
@@ -212,12 +210,14 @@
                 }
                 ctx.stroke();
             }
+            ctx.restore();
         }
         
         function drawHeadingIndicators(centerX, centerY, radius) {
             const indicatorSize = 15;
             const textOffset = 25;
             
+            ctx.save();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.font = '14px Arial';
@@ -267,13 +267,15 @@
                 ctx.stroke();
                 ctx.fillText((i/10).toString(), x, y+5);
             }
+            ctx.restore();
         }
         
         function drawFixedMarkers(centerX, centerY, pitch) {
             const radius = Math.min(centerX, centerY) - 20;
             const pitchScale = radius / 90;
-            const pitchOffset = pitch * pitchScale;
+            const pitchOffset = 1 * pitchScale;
             
+            ctx.save();
             // 飞机符号
             ctx.strokeStyle = '#f00';
             ctx.lineWidth = 2;
@@ -293,6 +295,7 @@
             ctx.lineTo(centerX, centerY - 2 + pitchOffset);
             ctx.strokeStyle = '#ff0';
             ctx.stroke();
+            ctx.restore();
         }
         
         // 事件监听
