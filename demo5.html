@@ -51,8 +51,8 @@
         <canvas id="horizon" width="400" height="400"></canvas>
         <div class="controls">
             <div>
-                <label for="yaw">偏航角 (0-360°):</label>
-                <input type="range" id="yaw" min="0" max="360" value="0">
+                <label for="yaw">偏航角 (-360-360°):</label>
+                <input type="range" id="yaw" min="-360" max="360" value="0">
             </div>
             <div>
                 <label for="pitch">俯仰角 (-90-90°):</label>
@@ -69,7 +69,7 @@
         const yawPointer = document.getElementById('yawPointer');
         
         // 初始值
-        let yaw = 0;      // 偏航角 (0-360度)
+        let yaw = 0;      // 偏航角 (-360到360度)
         let pitch = 0;    // 俯仰角 (-90到90度)
         
         // 动画循环
@@ -86,13 +86,15 @@
             const centerY = canvas.height / 2;
             const radius = Math.min(centerX, centerY) + 20;
             
-            const angle = (yaw - 90) * Math.PI / 180;
+            // 将偏航角规范化到0-360度范围用于显示
+            const normalizedYaw = ((yaw % 360) + 360) % 360;
+            const angle = (normalizedYaw - 90) * Math.PI / 180;
             const pointerX = centerX + Math.cos(angle) * radius;
             const pointerY = centerY + Math.sin(angle) * radius;
             
             yawPointer.style.left = `${pointerX}px`;
             yawPointer.style.top = `${pointerY}px`;
-            yawPointer.style.transform = `translate(-50%, -100%) rotate(${yaw - 180}deg)`;
+            yawPointer.style.transform = `translate(-50%, -100%) rotate(${normalizedYaw - 180}deg)`;
         }
         
         // 绘制水平仪
@@ -121,9 +123,12 @@
         function drawDynamicHorizon(centerX, centerY, radius, yaw, pitch) {
             ctx.save();
             ctx.translate(centerX, centerY);
-            ctx.rotate(-yaw * Math.PI / 180);
             
-            // 调整俯仰角缩放比例，使-90~90度在可视范围内
+            // 将偏航角规范化到0-360度范围用于显示
+            const normalizedYaw = ((yaw % 360) + 360) % 360;
+            ctx.rotate(-normalizedYaw * Math.PI / 180);
+            
+            // 俯仰角缩放比例
             const pitchScale = radius / 90;
             const pitchOffset = pitch * pitchScale;
             
@@ -163,10 +168,12 @@
         }
         
         function drawPitchIndicators(centerX, centerY, radius, pitch) {
-            const pitchLines = 6; // 增加到6条线以适应更大范围
-            const lineSpacing = 10; // 减小间距
+            const pitchScale = radius / 90;
+            const pitchOffset = pitch * pitchScale;
+            
+            const pitchLines = 6; // 6条线
+            const lineSpacing = 10; // 线间距
             const lineLength = 20;
-            const pitchScale = radius / 90; // 与动态部分相同的缩放比例
             
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
@@ -176,7 +183,7 @@
             
             // 上方刻度（俯角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = centerY - i * lineSpacing + pitch * pitchScale;
+                const yPos = centerY - i * lineSpacing + pitchOffset;
                 ctx.beginPath();
                 if(i % 2) {
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
@@ -192,7 +199,7 @@
             
             // 下方刻度（仰角）
             for (let i = 1; i <= pitchLines; i++) {
-                const yPos = centerY + i * lineSpacing + pitch * pitchScale;
+                const yPos = centerY + i * lineSpacing + pitchOffset;
                 ctx.beginPath();
                 if(i % 2) {
                     ctx.moveTo(centerX - lineLength/2 + 5, yPos);
@@ -263,7 +270,9 @@
         }
         
         function drawFixedMarkers(centerX, centerY, pitch) {
-            const pitchScale = (Math.min(centerX, centerY) - 20) / 90;
+            const radius = Math.min(centerX, centerY) - 20;
+            const pitchScale = radius / 90;
+            const pitchOffset = pitch * pitchScale;
             
             // 飞机符号
             ctx.strokeStyle = '#f00';
@@ -271,17 +280,17 @@
             
             // 水平线
             ctx.beginPath();
-            ctx.moveTo(centerX - 50, centerY + pitch * pitchScale);
-            ctx.lineTo(centerX - 10, centerY + pitch * pitchScale);
-            ctx.moveTo(centerX + 10, centerY + pitch * pitchScale);
-            ctx.lineTo(centerX + 50, centerY + pitch * pitchScale);
+            ctx.moveTo(centerX - 50, centerY + pitchOffset);
+            ctx.lineTo(centerX - 10, centerY + pitchOffset);
+            ctx.moveTo(centerX + 10, centerY + pitchOffset);
+            ctx.lineTo(centerX + 50, centerY + pitchOffset);
             ctx.stroke();
             
             // 垂直线
             ctx.beginPath();
             ctx.lineWidth = 5;
-            ctx.moveTo(centerX, centerY + 2 + pitch * pitchScale);
-            ctx.lineTo(centerX, centerY - 2 + pitch * pitchScale);
+            ctx.moveTo(centerX, centerY + 2 + pitchOffset);
+            ctx.lineTo(centerX, centerY - 2 + pitchOffset);
             ctx.strokeStyle = '#ff0';
             ctx.stroke();
         }
